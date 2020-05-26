@@ -624,12 +624,21 @@ static void vReceive_AppTwelite(tsRxDataApp *pRx) {
 				if (u8ButtonChanged & 0x01) {
 					vDoSet_TrueAsLo( PORT_OUT1, u8ButtonState & 0x01);
 				}
+#ifndef USE_MONOSTICK
+				if (u8ButtonChanged & 0x02) {
+					vDoSet_TrueAsLo( PORT_OUT2, u8ButtonState & 0x01);
+				}
+#endif
 
 				uint16 u16OutputPWMDuty = 0;
 				uint8 i;
 				for (i = 0; i < 4; i++) {
 					uint16 u16Duty = G_BE_WORD();
+#ifdef USE_MONOSTICK
 					if(i == 2){
+#else
+					if(i == 0){
+#endif
 						if (u16Duty <= 1024) {
 							u16OutputPWMDuty = u16Duty;
 						} else {

@@ -153,6 +153,9 @@ void cbAppColdStart(bool_t bStart) {
 		// ToCoStick の場合はデフォルトで親機に設定する
 		bColdStart = TRUE;
 		vPortSetLo(PORT_OUT1);
+#ifndef USE_MONOSTICK
+		vPortSetLo(PORT_OUT2);
+#endif
 		sTimerPWM.u16duty = 0;
 		vTimerStart(&sTimerPWM);
 
@@ -284,13 +287,18 @@ void cbToCoNet_vHwEvent(uint32 u32DeviceId, uint32 u32ItemBitmap) {
 
 	case E_AHI_DEVICE_TICK_TIMER: //比較的頻繁な処理
 		_C{
+#ifdef USE_MONOSTICK
 			static bool_t bPulse = FALSE;
 			vPortSet_TrueAsLo(WD_PULSE,  bPulse);
 			bPulse = !bPulse;
+#endif
 
 			if( bColdStart && u32TickCount_ms >= LED_FLASH_MS ){
 				bColdStart = FALSE;
 				vPortSetHi(PORT_OUT1);
+#ifndef USE_MONOSTICK
+				vPortSetHi(PORT_OUT2);
+#endif
 				sTimerPWM.u16duty = 1024;
 				vTimerStart(&sTimerPWM);
 			}
@@ -349,6 +357,7 @@ static void vInitHardware(int f_warm_start) {
 	vPortSetHi(PORT_OUT1);
 	vPortAsOutput(PORT_OUT1);
 
+#ifdef USE_MONOSTICK
 	vPortDisablePullup(WD_ENABLE);
 	vPortSetLo(WD_ENABLE);
 	vPortAsOutput(WD_ENABLE);
@@ -356,6 +365,11 @@ static void vInitHardware(int f_warm_start) {
 	vPortDisablePullup(WD_PULSE);
 	vPortSetHi(WD_PULSE);
 	vPortAsOutput(WD_PULSE);
+#else
+	vPortDisablePullup(PORT_OUT2);
+	vPortSetHi(PORT_OUT2);
+	vPortAsOutput(PORT_OUT2);
+#endif
 
 	vPortAsInput(PORT_BAUD);
 
@@ -437,7 +451,11 @@ static void vInitHardware(int f_warm_start) {
 
 	vAHI_TimerSetLocation(E_AHI_TIMER_1, TRUE, TRUE); // DIO5, DO1, DO2, DIO8
 
+#ifdef USE_MONOSTICK
 	sTimerPWM.u8Device = E_AHI_DEVICE_TIMER3;
+#else
+	sTimerPWM.u8Device = E_AHI_DEVICE_TIMER1;
+#endif
 
 	vTimerConfig(&sTimerPWM);
 	vTimerStart(&sTimerPWM);
@@ -476,7 +494,7 @@ void vSerialInit(uint32 u32Baud, tsUartOpt *pUartOpt) {
  */
 void vSerInitMessage() {
 	TWE_fprintf(&sSer,
-			LB"!INF MW APP_WINGS(%s) V%d-%02d-%d, SID=0x%08X"LB,
+			LB"!INF MW APP_WINGS(%s) v%d-%02d-%d, SID=0x%08X"LB,
 			sAppData.u8layer ? "Router" : "Parent", VERSION_MAIN, VERSION_SUB, VERSION_VAR, ToCoNet_u32GetSerial() );
 }
 

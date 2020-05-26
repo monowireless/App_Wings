@@ -29,7 +29,9 @@
 /*
  * IOポートの定義
  */
+#ifdef USE_MONOSTICK
 // MONOSTICK 用
+#warning "IO CONF IS FOR MONOSTICK"
 #define PORT_OUT1 16 // DIO16/18 をスワップ
 #define PORT_OUT2 19
 #define PORT_OUT3 4
@@ -48,6 +50,27 @@
 
 #define WD_ENABLE 11	// WDを有効にする
 #define WD_PULSE 9	// WDにパルスを入力するピン
+#else
+// Stage向け
+#define PORT_OUT1 18 // DIO16/18 をスワップ
+#define PORT_OUT2 19
+#define PORT_OUT3 4
+#define PORT_OUT4 9
+
+#define PORT_INPUT1 12
+#define PORT_INPUT2 13
+#define PORT_INPUT3 11
+#define PORT_INPUT4 16 // DIO16/18 をスワップ
+
+#define PORT_CONF1 10
+#define PORT_CONF2 2
+#define PORT_CONF3 3
+
+#define PORT_BAUD 17
+
+#define WD_ENABLE 11	// WDを有効にする
+#define WD_PULSE 9	// WDにパルスを入力するピン
+#endif
 
 #define PORT_OUT_MASK ((1UL << PORT_OUT1) | (1UL << PORT_OUT2) | (1UL << PORT_OUT3) | (1UL << PORT_OUT4))
 #define PORT_INPUT_MASK ((1UL << PORT_INPUT1) | (1UL << PORT_INPUT2) | (1UL << PORT_INPUT3) | (1UL << PORT_INPUT4))

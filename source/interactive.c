@@ -88,7 +88,7 @@ const TWESTG_tsElement SetParentSettings[] = {
 	{ E_TWESTG_DEFSETS_LAYER,
 		{ TWESTG_DATATYPE_UINT8, sizeof(uint8), 0, 0, { .u8 = 0} },
 		{ "MOD", "Mode (Parent or Router)", "0:Parent\r\n1-63:Router(Layer)." },
-		{ E_TWEINPUTSTRING_DATATYPE_DEC, 2, 'l' },
+		{ E_TWEINPUTSTRING_DATATYPE_DEC, 2, 'm' },
 		{ {.u8 = 0}, {.u8 = 63}, TWESTGS_VLD_u32MinMax, NULL }
 	},
 	{ E_TWESTG_DEFSETS_HIGHERADDRESS,
@@ -464,7 +464,7 @@ TWE_APIRET TWEINTRCT_cbu32GenericHandler(TWEINTRCT_tsContext *pContext, uint32 u
 			// 別の固定文字列へのポインタに書き換えてもかまわない。
 
 			// このコードは -Os 最適化では不具合を起こす場合がある（case 節内にあるのが原因？）
-			//TWE_snprintf(*((char**)vpArg), "tick=%d", u32TickCount_ms);
+			TWE_snprintf(*((char**)vpArg), 32, "v%d-%02d-%d/SID=%08X", VERSION_MAIN, VERSION_SUB, VERSION_VAR, ToCoNet_u32GetSerial() );
 		}
 		break;
 

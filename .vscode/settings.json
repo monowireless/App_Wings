@@ -2,6 +2,8 @@
     "C_Cpp.errorSquiggles": "Enabled",
     "C_Cpp.default.includePath": [
         "source",
+        "App_Wings",
+        "App_Wings_MONOSTICK",
         "../../Tools/VSCode/**",
         "../../TWENET/current/include/**",
         "../../TWENET/current/src/**"
@@ -34,7 +36,8 @@
     ],
     "files.associations": {
         "common.h": "c",
-        "app_pal.h": "c"
+        "app_pal.h": "c",
+        "app_wings.h": "c"
     }
 
 }
