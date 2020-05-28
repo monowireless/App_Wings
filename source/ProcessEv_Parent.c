@@ -528,6 +528,11 @@ static void vReceive_AppTwelite(tsRxDataApp *pRx) {
 			if (u8ButtonChanged & 0x01) {
 				vDoSet_TrueAsLo( PORT_OUT1, u8ButtonState & 0x01);
 			}
+#ifndef USE_MONOSTICK
+			if (u8ButtonChanged & 0x02) {
+				vDoSet_TrueAsLo( PORT_OUT2, u8ButtonState & 0x02);
+			}
+#endif
 
 			uint8 i;
 
@@ -554,7 +559,11 @@ static void vReceive_AppTwelite(tsRxDataApp *pRx) {
 
 			// ADC 値を PWM の DUTY 比に変換する
 			// 下は 5%, 上は 10% を不感エリアとする。
+#ifdef USE_MONOSTICK
 			uint16 u16Adc = au16OutputDAC[2];
+#else
+			uint16 u16Adc = au16OutputDAC[0];
+#endif
 			uint16 u16OutputPWMDuty = 0;
 			u16Adc <<= 2; // 以下の計算は 12bit 精度
 			if (u16Adc > ADC_MAX_THRES) { // 最大レンジの 98% 以上なら、未定義。
@@ -626,7 +635,7 @@ static void vReceive_AppTwelite(tsRxDataApp *pRx) {
 				}
 #ifndef USE_MONOSTICK
 				if (u8ButtonChanged & 0x02) {
-					vDoSet_TrueAsLo( PORT_OUT2, u8ButtonState & 0x01);
+					vDoSet_TrueAsLo( PORT_OUT2, u8ButtonState & 0x02);
 				}
 #endif
 
