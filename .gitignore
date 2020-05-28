@@ -1,2 +1,5 @@
-*/build/*.bin
-*/build/objs*/
+# ignore file
+*.d
+*.bin
+*.o
+objs*/
