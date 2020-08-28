@@ -1,7 +1,7 @@
 {
     "C_Cpp.errorSquiggles": "Enabled",
     "C_Cpp.default.includePath": [
-        "source",
+        "Common",
         "App_Wings",
         "App_Wings_MONOSTICK",
         "../../Tools/VSCode/**",
@@ -9,7 +9,9 @@
         "../../TWENET/current/src/**"
     ],
     "C_Cpp.default.browse.path": [
-        "source",
+        "Common",
+        "App_Wings",
+        "App_Wings_MONOSTICK",
         "../../Tools/VSCode/**",
         "../../TWENET/current/include/**",
         "../../TWENET/current/src/**"

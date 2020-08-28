@@ -128,7 +128,7 @@ const TWESTG_tsSettingsListItem SetList[2][5] = {
 /**
  * @brief 設定リストのメニュー名
  */
-const uint8 SetList_names[][8] = { "PARENT", "ROUTER" };
+const uint8 SetList_names[][8] = { "", "ROUTER" };
 
 /**
  * @brief Kind名

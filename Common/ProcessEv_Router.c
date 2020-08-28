@@ -58,7 +58,7 @@ tsSerSeq sSerSeqRx; //!< 分割パケット管理構造体（受信用）  @ingr
 uint8 au8SerBuffRx[SERCMD_MAXPAYLOAD + 32]; //!< sSerSeqRx 用に確保  @ingroup MASTER
 extern TWESERCMD_tsSerCmd_Context sSerCmdOut; //!< シリアル出力
 
-static tsToCoNet_DupChk_Context* psDupChk = NULL;
+extern tsToCoNet_DupChk_Context* psDupChk;
 
 /*
  * E_STATE_IDLE
@@ -75,6 +75,8 @@ PRSEV_HANDLER_DEF(E_STATE_IDLE, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
 
 		TOCONET_DUPCHK_DECLARE_CONETXT(DUPCHK,40); //!< 重複チェック
 		psDupChk = ToCoNet_DupChk_psInit(DUPCHK);
+
+		Reply_vInit();
 
 		if (IS_APPCONF_OPT_SECURE()) {
 			bool_t bRes = bRegAesKey(sAppData.u32enckey);
@@ -102,12 +104,31 @@ PRSEV_HANDLER_DEF(E_STATE_IDLE, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
 			ToCoNet_Nwk_bInit(sAppData.pContextNwk);
 			ToCoNet_Nwk_bStart(sAppData.pContextNwk);
 		}
-	} else if (eEvent == E_EVENT_TOCONET_NWK_START) {
+		//ToCoNet_Event_SetState(pEv, E_STATE_RUNNING);
+	}
+	if (eEvent == E_EVENT_TOCONET_NWK_START) {
 		ToCoNet_Event_SetState(pEv, E_STATE_RUNNING);
 	}
 }
 
 PRSEV_HANDLER_DEF(E_STATE_RUNNING, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
+/*
+	static uint8 count = 0;
+	if( eEvent == E_EVENT_TICK_SECOND ){
+		count++;
+		if( count == 5 ){
+			S_PRINT( LB"slot0 share" );
+			// スロット0(LID:1～8)の内容を共有する
+			Reply_bSendShareData( 0x00, TOCONET_NWK_ADDR_BROADCAST );
+		}
+		if( count == 10 ){
+			S_PRINT( LB"slot1 share" );
+			// スロット1(LID:0x81～0x88)の内容を共有する
+			Reply_bSendShareData( 0x80, TOCONET_MAC_ADDR_BROADCAST );
+			count = 0;
+		}
+	}
+*/
 	return;
 }
 
@@ -261,24 +282,30 @@ static void cbAppToCoNet_vRxEvent(tsRxDataApp *psRx) {
 		}
 	}
 
-	if( psRx->bNwkPkt ){
+	if(psRx->u8Cmd == TOCONET_PACKET_CMD_APP_PAL_REPLY ){
+		//S_PRINT("!Reply Data.");
+		Reply_bReceiveReplyData( psRx );
+		return;
+	}
+
+	uint8* p = psRx->auData;
+	uint16 u16Ver = G_BE_WORD();
+	if( ((u16Ver>>8)&0x7F) == 'R' || ((u16Ver>>8)&0x7F) == 'T' ){
 		vRepeat_AppPAL(psRx);
+	}else if( (u16Ver&0x00FF) == APP_TWELITE_PROTOCOL_VERSION ){
+		vRepeat_AppTwelite(psRx);
+	}else if( (u16Ver&0x00FF) == APP_IO_PROTOCOL_VERSION && psRx->u8Len == 18 ){
+		vRepeat_AppIO(psRx);
+	}else if( (u16Ver&0x001F) == APP_UART_PROTOCOL_VERSION ){
+		vRepeat_AppUart(psRx);
 	}else{
-		uint8* p = psRx->auData;
-		uint16 u16Ver = G_BE_WORD();
-		if( (u16Ver&0x00FF) == APP_IO_PROTOCOL_VERSION && psRx->u8Len == 18 ){
-			vRepeat_AppIO(psRx);
-		}else if( (u16Ver&0x001F) == APP_UART_PROTOCOL_VERSION ){
-			vRepeat_AppUart(psRx);
-		}else{
-			switch (psRx->u8Cmd) {
-				case TOCONET_PACKET_CMD_APP_MWX:
-					vRepeat_Act(psRx);
-					break;
-				default:
-					vRepeat_AppTwelite(psRx);
-					break;
-			}
+		switch (psRx->u8Cmd) {
+			case TOCONET_PACKET_CMD_APP_MWX:
+				vRepeat_Act(psRx);
+				break;
+			default:
+				vRepeat_AppTwelite(psRx);
+				break;
 		}
 	}
 }
@@ -289,11 +316,11 @@ static void cbAppToCoNet_vRxEvent(tsRxDataApp *psRx) {
  * @param bStatus
  */
 static void cbAppToCoNet_vTxEvent(uint8 u8CbId, uint8 bStatus) {
-	S_PRINT( LB ">>> MacAck%s(tick=%d,req=#%d) <<<",
+/*	S_PRINT( LB ">>> MacAck%s(tick=%d,req=#%d) <<<",
 			bStatus ? "Ok" : "Ng",
 			u32TickCount_ms & 0xFFFF,
 			u8CbId
-			);
+			);*/
 	return;
 }
 /**
@@ -383,7 +410,7 @@ static void vRepeat_AppTwelite(tsRxDataApp* psRx)
 		return;
 
 	uint8 u8PtclVersion = G_OCTET();
-	if (u8PtclVersion != APP_PROTOCOL_VERSION)
+	if (u8PtclVersion != APP_TWELITE_PROTOCOL_VERSION)
 		return;
 
 	uint8 u8AppLogicalId = G_OCTET();(void)u8AppLogicalId;
@@ -588,7 +615,7 @@ static void vRepeat_AppUart(tsRxDataApp* psRx)
 		bool_t bDup = ToCoNet_DupChk_bAdd(psDupChk, u32AddrSrc, u8req & 0x7f);
 		DBGOUT(4, "<%02X,%c>", u8req, bDup ? 'D' : '-');
 		if (bDup) {
-			// 重複しいたら新しい人生は始めない
+			// 重複していたら新しい人生は始めない
 			bNew = FALSE;
 		}
 
@@ -857,6 +884,11 @@ static void vRepeat_AppPAL(tsRxDataApp* psRx)
 		}
 	}
 
+	if(ToCoNet_DupChk_bAdd(psDupChk, psRx->u32SrcAddr, psRx->u8Seq)){
+		DBGOUT(3, LB"! Dup.(App_PAL)");
+		return;
+	}
+
 	// 直接受信したパケットを上位へ転送する
 	//
 	// 直接親機宛(TOCONET_NWK_ADDR_PARENT指定で送信)に向けたパケットはここでは処理されない。
@@ -868,7 +900,7 @@ static void vRepeat_AppPAL(tsRxDataApp* psRx)
 		uint8 *q = sTx.auData;
 
 		uint8 u8Headder = 'R' + (psRx->auData[0]&0x80);
-		u8Headder |= psRx->auData[0]&0x80;
+		//u8Headder |= psRx->auData[0]&0x80;
 		S_OCTET(u8Headder); // 1バイト目に中継機フラグを立てる
 		S_BE_DWORD(psRx->u32SrcAddr); // 子機のアドレスを
 		S_OCTET(psRx->u8Lqi); // 受信したLQI を保存する
@@ -880,7 +912,7 @@ static void vRepeat_AppPAL(tsRxDataApp* psRx)
 
 		sTx.u32DstAddr = TOCONET_NWK_ADDR_PARENT;
 		sTx.u32SrcAddr = ToCoNet_u32GetSerial(); // Transmit using Long address
-		sTx.u8Cmd = 0; // data packet.
+		sTx.u8Cmd = psRx->u8Cmd; // data packet.
 
 		sTx.u8Seq = psRx->u8Seq;
 		sTx.u8CbId = psRx->u8Seq;
@@ -892,6 +924,101 @@ static void vRepeat_AppPAL(tsRxDataApp* psRx)
 		}
 
 		ToCoNet_Nwk_bTx(sAppData.pContextNwk, &sTx);
+
+		if(psRx->auData[0]&0x80){
+			uint8* p = psRx->auData + 5;
+			//p += 5;
+			uint8 u8length = G_OCTET();
+			uint8 i=0;
+			while(i<u8length){
+				uint8 sns = G_OCTET();
+				switch( sns ){
+					case HALLIC:
+					p += 2;
+					break;
+				case TEMP:
+					p += 3;
+					break;
+				case HUM:
+					p += 3;
+					break;
+				case ILLUM:
+					p += 5;
+					break;
+
+				case ACCEL:
+					_C{
+						uint8 u8Int = G_OCTET();(void)u8Int;
+						uint8 u8Num = G_OCTET();
+						uint8 u8Sampling = G_OCTET();
+						u8Sampling = (u8Sampling<<5)&0xFF;		// 5bitシフトしておく
+						uint8 u8Bit = G_OCTET();(void)u8Bit;
+
+						uint8 j = 0;
+						while( j < u8Num ){
+							p += 9;
+							j += 2;
+						}
+						i += (u8Num-1);
+					}
+					break;
+				case EVENT:
+					_C{
+						uint8 u8Sns = G_OCTET();
+						if(u8Sns&0x80){
+							p+=3;
+						}else{
+							p++;
+						}
+					}
+					break;
+				case LED:	// ここは要修正
+					p++;
+					break;
+				case ADC:
+					_C{
+						uint8 u8num = G_OCTET();
+						if(u8num == 0x01 || u8num == 0x08){
+							p++;
+						}else{
+							p+=2;
+						}
+					}
+					break;
+				case DIO:
+					_C{
+						uint8	u8num = G_OCTET();
+						if(u8num <= 8){
+							p++;
+						}else if(u8num<=16){
+							p+=2;
+						}else{
+							p+=4;
+						}
+					}
+					break;
+				case EEPROM:
+					p+=2;
+					break;
+				case REPLY:
+					_C{
+						tsRxPktInfo sRxPktInfo;
+						sRxPktInfo.u32addr_rcvr = TOCONET_NWK_ADDR_PARENT;
+						sRxPktInfo.u8lqi_1st = psRx->u8Lqi;
+						sRxPktInfo.u32addr_1st = psRx->u32SrcAddr;
+						sRxPktInfo.u8id = psRx->auData[1];
+						sRxPktInfo.u16fct = (psRx->auData[3]<<8)|psRx->auData[2];
+						sRxPktInfo.u8pkt = psRx->auData[4];
+						Reply_bSendData(sRxPktInfo);
+					}
+					return;
+
+				default:
+					break;
+				}
+				i++;
+			}
+		}
 	}
 }
 

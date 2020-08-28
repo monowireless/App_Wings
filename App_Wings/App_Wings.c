@@ -91,6 +91,7 @@ bool_t bColdStart = TRUE; //!< MoNoStickの時の起動時にLEDを光らせる�
 
 void* pvProcessEv;
 tsCbHandler* psCbHandler = NULL;
+tsToCoNet_DupChk_Context* psDupChk = NULL;
 
 /****************************************************************************/
 /***        FUNCTIONS                                                     ***/
@@ -121,6 +122,12 @@ void cbAppColdStart(bool_t bStart) {
 		// LOAD configuration
 		vAppLoadData( STGS_KIND_PARENT, TWESTG_SLOT_DEFAULT, FALSE );
 		vQueryAppData();
+
+		uint8 i;
+		for(i=1;i<9;i++){
+			vAppLoadData( STGS_KIND_PARENT, i, FALSE );
+			vQueryAppData();
+		}
 
 		// デフォルトのネットワーク指定値
 		sToCoNet_AppContext.u8TxMacRetry = 3; // MAC再送回数
@@ -163,6 +170,8 @@ void cbAppColdStart(bool_t bStart) {
 
 		sAppData.u8AppLogicalId = 0;
 		sAppData.u8Mode = 1; // 親機のモード番号
+
+//		sAppData.u8DebugLevel = 5;
 
 		// 各モード依存の初期値の設定など
 		if (sAppData.u8layer) {

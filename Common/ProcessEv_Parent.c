@@ -37,6 +37,19 @@
 
 #include "ToCoNet_mod_prototype.h"
 
+typedef struct{
+	uint8	u8LID;
+	uint8	u8SNSID;
+	uint8	u8HallIC;
+	int16	i16Temp;
+	uint16	u16Hum;
+	uint32	u32Illumi;
+	int16	au16Accle[3][32];
+	uint8	u8Event;
+	uint8	au8LED[4];
+	uint8	u8LEDBlink;
+}tsSnsData;
+
 static void vReceiveNwkMsg(tsRxDataApp *pRx);
 static void vReceiveActData(tsRxDataApp *pRx);
 static void vReceive_AppTwelite(tsRxDataApp *pRx);
@@ -52,6 +65,8 @@ static void vProcessSerialCmd(TWESERCMD_tsSerCmd_Context *pSer);
 void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p);
 void vSerOutput_Tag(tsRxPktInfo sRxPktInfo, uint8 *p);
 
+void vSetReplyData(tsSnsData* data);
+
 extern TWE_tsFILE sSer;
 extern TWEINTRCT_tsContext* sIntr;
 
@@ -62,7 +77,23 @@ tsSerSeq sSerSeqRx; //!< 分割パケット管理構造体（受信用）  @ingr
 uint8 au8SerBuffRx[SERCMD_MAXPAYLOAD + 32]; //!< sSerSeqRx 用に確保  @ingroup MASTER
 extern TWESERCMD_tsSerCmd_Context sSerCmdOut; //!< シリアル出力
 
-static tsToCoNet_DupChk_Context* psDupChk = NULL;
+extern tsToCoNet_DupChk_Context* psDupChk;
+
+uint8 au8Color[9][4] = {
+//	 R, G, B, W
+	{1, 0, 0, 0},	// red
+	{0, 1, 0, 0},	// green
+	{0, 0, 1, 0},	// blue
+	{1, 1, 0, 0},	// yellow
+	{1, 0, 1, 0},	// magenta
+	{0, 1, 1, 0},	// cyan
+	{1, 1, 1, 0},	// white
+	{0, 0, 0, 1},	// warm white
+	{1, 1, 1, 1}	// all
+};
+
+uint8 au8BlinkDuty[4] = { 0, 0x7F, 0x3F, 0x20 };
+uint8 au8BlinkCycle[4] = { 0, 0x17, 0x17, 0x2F };
 
 /*
  * E_STATE_IDLE
@@ -79,6 +110,8 @@ PRSEV_HANDLER_DEF(E_STATE_IDLE, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
 
 		TOCONET_DUPCHK_DECLARE_CONETXT(DUPCHK,40); //!< 重複チェック
 		psDupChk = ToCoNet_DupChk_psInit(DUPCHK);
+
+		Reply_vInit();
 
 		// 中継ネットの設定
 		sAppData.sNwkLayerTreeConfig.u8Layer = 0;
@@ -97,6 +130,21 @@ PRSEV_HANDLER_DEF(E_STATE_IDLE, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
 }
 
 PRSEV_HANDLER_DEF(E_STATE_RUNNING, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
+	static uint8 count = 0;
+	if( eEvent == E_EVENT_TICK_SECOND ){
+		count++;
+/*		if(count == 5){
+			// スロット0(LID:1～8)の内容を共有する
+			Reply_bSendShareData( 0x00, TOCONET_MAC_ADDR_BROADCAST );
+		}
+		if( count == 10 ){
+			// スロット1(LID:0x81～0x88)の内容を共有する
+			Reply_bSendShareData( 0x80, TOCONET_MAC_ADDR_BROADCAST );
+
+			//TWE_fprintf(&sSer, LB"%08X : Regular Share.", u32TickCount_ms);
+			count = 0;
+		}
+*/	}
 	return;
 }
 
@@ -209,25 +257,31 @@ static void cbAppToCoNet_vRxEvent(tsRxDataApp *psRx) {
 		}
 	}
 
-	if(psRx->bNwkPkt == TRUE){
+	if( psRx->u8Cmd == TOCONET_PACKET_CMD_APP_PAL_REPLY ){
+		Reply_bReceiveReplyData( psRx );
+		return;
+	}
+
+	uint8* p = psRx->auData;
+	uint16 u16Ver = G_BE_WORD();
+	if( ((u16Ver>>8)&0x7F) == 'R' || ((u16Ver>>8)&0x7F) == 'T' ){
 		vReceiveNwkMsg(psRx);
+	}else if( (u16Ver&0x00FF) == APP_TWELITE_PROTOCOL_VERSION ){
+		vReceive_AppTwelite(psRx);
+	}else if( (u16Ver&0x00FF) == APP_IO_PROTOCOL_VERSION && psRx->u8Len == 18 ){
+		vReceive_AppIO(psRx);
+	}else if( (u16Ver&0x001F) == APP_UART_PROTOCOL_VERSION ){
+		vReceive_AppUart(psRx);
 	}else{
-		uint8* p = psRx->auData;
-		uint16 u16Ver = G_BE_WORD();
-		if( (u16Ver&0x00FF) == APP_IO_PROTOCOL_VERSION && psRx->u8Len == 18 ){
-			vReceive_AppIO(psRx);
-		}
-		else if( (u16Ver&0x001F) == APP_UART_PROTOCOL_VERSION ){
-			vReceive_AppUart(psRx);
-		}else{
-			switch (psRx->u8Cmd) {
-				case TOCONET_PACKET_CMD_APP_MWX:
-					vReceiveActData(psRx);
-					break;
-				default:
-					vReceive_AppTwelite(psRx);
-					break;
-			}
+		switch (psRx->u8Cmd) {
+			case TOCONET_PACKET_CMD_APP_MWX:
+				vReceiveActData(psRx);
+				break;
+			case TOCONET_PACKET_CMD_APP_DATA:
+				vReceiveNwkMsg(psRx);
+				break;
+			default:
+				break;
 		}
 	}
 }
@@ -372,7 +426,7 @@ static void vReceive_AppTwelite(tsRxDataApp *pRx) {
 		return;
 
 	uint8 u8PtclVersion = G_OCTET();
-	if (u8PtclVersion != APP_PROTOCOL_VERSION)
+	if (u8PtclVersion != APP_TWELITE_PROTOCOL_VERSION)
 		return;
 
 	uint8 u8AppLogicalId = G_OCTET();
@@ -1002,6 +1056,11 @@ void vReceiveNwkMsg(tsRxDataApp *pRx) {
  */
 void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 	uint8* q = sSerCmdOut.au8data; // 出力バッファ
+	bool_t bDup = ToCoNet_DupChk_bAdd(psDupChk, sRxPktInfo.u32addr_1st, (uint8)sRxPktInfo.u16fct );
+
+	tsSnsData sSnsData;
+	memset( &sSnsData, 0x00, sizeof(tsSnsData) );
+	sSnsData.u8Event = 0xFF;
 
 	// 受信機のアドレス
 	S_BE_DWORD(sRxPktInfo.u32addr_rcvr);
@@ -1024,6 +1083,11 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 	S_OCTET(u8Length);
 	uint8 i = 0;
 
+	sSnsData.u8LID = sRxPktInfo.u8id;
+	sSnsData.u8SNSID = sRxPktInfo.u8pkt&0x1F;
+
+	bool_t bReplyFlag = FALSE;
+
 	while( i<u8Length ){
 		uint8 u8Sensor = G_OCTET();
 
@@ -1037,6 +1101,8 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 					S_OCTET(0x00);
 					S_OCTET(0x01);
 					S_OCTET(u8Status);
+
+					sSnsData.u8HallIC = u8Status;
 				}
 				break;
 			case TEMP:
@@ -1056,6 +1122,7 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 						S_OCTET(0x02);
 						S_BE_WORD(i16temp);
 					}
+					sSnsData.i16Temp = i16temp;
 				}
 				break;
 			case HUM:
@@ -1075,6 +1142,7 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 						S_OCTET(0x02);
 						S_BE_WORD(u16hum);
 					}
+					sSnsData.u16Hum = u16hum;
 				}
 				break;
 			case ILLUM:
@@ -1082,7 +1150,7 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 					uint8 u8num = G_OCTET();(void)u8num;
 					uint32 u32illum = G_BE_DWORD();
 
-          	    	if(u32illum == 0xFFFFFFFE || u32illum == 0xFFFFFFFF ){
+					if(u32illum == 0xFFFFFFFE || u32illum == 0xFFFFFFFF ){
 						S_OCTET(ERROR|((u32illum == 0xFFFFFFFE)?0x01:0x00));
 						S_OCTET(u8Sensor);
 						S_OCTET(0x00);
@@ -1094,6 +1162,7 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 						S_OCTET(0x04);
 						S_BE_DWORD(u32illum);
 					}
+					sSnsData.u32Illumi = u32illum;
 				}
 				break;
 
@@ -1117,7 +1186,7 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 						tmp = G_OCTET(); X[1] |= tmp;
 						tmp = G_OCTET(); Y[1] = tmp<<4;
 						tmp = G_OCTET(); Y[1] |= (tmp>>4); Z[1] = (tmp&0x0F)<<8;
-                    	tmp = G_OCTET(); Z[1] |= tmp;
+						tmp = G_OCTET(); Z[1] |= tmp;
 
 						uint8 k;
 						for( k=0; k<2; k++ ){
@@ -1133,12 +1202,49 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 							S_BE_WORD(X[k]);
 							S_BE_WORD(Y[k]);
 							S_BE_WORD(Z[k]);
+							sSnsData.au16Accle[0][j*k] = X[k];
+							sSnsData.au16Accle[1][j*k] = Y[k];
+							sSnsData.au16Accle[2][j*k] = Z[k];
 						}
 
 
 						j += 2;
 					}
 					i += (u8Num-1);
+				}
+				break;
+			case EVENT:
+				_C{
+					uint8 Sns = G_OCTET();
+					uint8 Event = G_OCTET();
+					S_OCTET(USE_EXBYTE|TYPE_UNSIGNED|TYPE_LONG);
+					S_OCTET(u8Sensor);
+					S_OCTET(Sns);
+					S_OCTET(0x04);
+					S_OCTET(Event);
+					if(Sns&0x80){
+						uint8 temp = G_OCTET();
+						S_OCTET( temp );
+						temp = G_OCTET();
+						S_OCTET( temp );
+						temp = G_OCTET();
+						S_OCTET( temp );
+					}else{
+						S_OCTET(0x00);
+						S_OCTET(0x00);
+						S_OCTET(0x00);
+					}
+					sSnsData.u8Event = Event;
+				}
+				break;
+			case LED:	// ここは要修正
+				_C{
+					uint8 state = G_OCTET();
+					S_OCTET(USE_EXBYTE|TYPE_UNSIGNED|TYPE_CHAR);
+					S_OCTET(u8Sensor);
+					S_OCTET(0x01);
+					S_OCTET(0x01);
+					S_OCTET(state);
 				}
 				break;
 			case ADC:
@@ -1172,7 +1278,7 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 						S_OCTET(USE_EXBYTE|TYPE_UNSIGNED|TYPE_SHORT);
 					}else{
 						u32DIO = G_BE_DWORD();
-                    	S_OCTET(USE_EXBYTE|TYPE_UNSIGNED|TYPE_LONG);
+						S_OCTET(USE_EXBYTE|TYPE_UNSIGNED|TYPE_LONG);
 					}
 					S_OCTET(u8Sensor);
 					S_OCTET(u8num);
@@ -1198,6 +1304,10 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 					S_OCTET(0x00);
 				}
 				break;
+			case REPLY:
+				bReplyFlag = TRUE;
+				break;
+
 			default:
 				break;
 		}
@@ -1209,6 +1319,15 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 
 	sSerCmdOut.u16len = q - sSerCmdOut.au8data;
 	sSerCmdOut.vOutput( &sSerCmdOut, &sSer );
+
+	if( !bDup && sSnsData.u8Event != 0xFF ){
+		vSetReplyData(&sSnsData);
+	}
+
+	// LED PALからのパケットで中継されていない場合は送り返す
+	if( bReplyFlag && (sRxPktInfo.u32addr_rcvr == 0x80000000) ){
+		Reply_bSendData(sRxPktInfo);
+	}
 
 	sSerCmdOut.u16len = 0;
 	memset(sSerCmdOut.au8data, 0x00, sizeof(sSerCmdOut.au8data));
@@ -1785,6 +1904,52 @@ static void vProcessSerialCmd(TWESERCMD_tsSerCmd_Context *pSer) {
 			}
 
 			return;
+		}else if(u8cmd == SERCMD_ID_PAL_COMMAND){
+			uint8 u8Num = G_OCTET();
+			tsReplyData sReplyData;
+			memset(&sReplyData, 0x00, sizeof(tsReplyData));
+
+			uint8 i;
+			for( i=0; i<u8Num; i++ ){
+				uint8 u8com = G_OCTET();
+				switch(u8com){
+					case 0:
+						sReplyData.u8Identifier = G_OCTET();
+						p++;
+						sReplyData.u8Event = G_OCTET();
+						sReplyData.bCommand = TRUE;
+						break;
+					case 1:
+						_C{
+							sReplyData.u8Event = 0xFE;
+							uint8 u8Color = G_OCTET();
+							uint8 u8Blink = G_OCTET();
+							uint8 u8Bright = G_OCTET();
+
+							if( u8Bright > 15 ) u8Bright = 15;
+							sReplyData.u16RGBW = (au8Color[u8Color][0]*u8Bright);
+							sReplyData.u16RGBW |= (au8Color[u8Color][1]*u8Bright)<<4;
+							sReplyData.u16RGBW |= (au8Color[u8Color][2]*u8Bright)<<8;
+							sReplyData.u16RGBW |= (au8Color[u8Color][3]*u8Bright)<<12;
+							sReplyData.u8BlinkCycle = au8BlinkCycle[u8Blink];
+							sReplyData.u8BlinkDuty = au8BlinkDuty[u8Blink];
+							sReplyData.bCommand = TRUE;
+							sReplyData.u8Identifier = PKT_ID_LED;
+						}
+						break;
+					case 2:
+						p++;
+						//sReplyData.u8Identifier = G_OCTET();
+						sReplyData.u8LightsOutCycle = G_BE_WORD()&0xFF;
+						break;
+					default:
+						break;
+				} 
+			}
+			if(Reply_bSetData( u8addr, &sReplyData )){
+				Reply_bSendShareData( u8addr, TOCONET_MAC_ADDR_BROADCAST );
+			}
+			return;
 		}
 
 		/*
@@ -1851,7 +2016,7 @@ int16 i16TransmitIoSettingRequest(uint8 u8DstAddr, tsIOSetReq *pReq) {
 	uint8 *q = sTx.auData;
 
 	S_OCTET(sAppData.u8AppIdentifier);
-	S_OCTET(APP_PROTOCOL_VERSION);
+	S_OCTET(APP_TWELITE_PROTOCOL_VERSION);
 	S_OCTET(sAppData.u8AppLogicalId); // アプリケーション論理アドレス
 	S_BE_DWORD(ToCoNet_u32GetSerial());  // シリアル番号
 	S_OCTET(u8DstAddr); // 宛先
@@ -1956,7 +2121,7 @@ static int16 i16TransmitSerMsg(uint8 *p, uint16 u16len, uint32 u32AddrSrc, uint8
 
 		// ペイロードを構成
 		S_OCTET(sAppData.u8AppIdentifier);
-		S_OCTET(APP_PROTOCOL_VERSION);
+		S_OCTET(APP_TWELITE_PROTOCOL_VERSION);
 		S_OCTET(u8AddrSrc); // アプリケーション論理アドレス
 		S_BE_DWORD(u32AddrSrc);  // シリアル番号
 		S_OCTET(sSerSeqTx.u8IdReceiver); // 宛先
@@ -1994,4 +2159,48 @@ static int16 i16TransmitSerMsg(uint8 *p, uint16 u16len, uint32 u32AddrSrc, uint8
 	}
 
 	return 0;
+}
+
+void vSetReplyData( tsSnsData* data )
+{
+	uint8 u8LID = data->u8LID&0x7F;
+	if( u8LID < 1 || 100 < u8LID ){
+		return;
+	}
+
+	tsReplyData sReplyData;
+	sReplyData.bCommand = FALSE;
+	sReplyData.u8Event = data->u8Event;
+	sReplyData.u8Identifier = 0xFF;
+//	sReplyData.u8Identifier = PKT_ID_LED;
+/*
+	switch (data->u8SNSID){
+		case PKT_ID_MAG:
+			_C{
+				sReplyData.bCommand = FALSE;
+				if( (data->u8HallIC&0x7F) == 0 ){
+					sReplyData.u8Event = 0;
+				}else{
+					sReplyData.u8Event = 1;
+				}
+				sReplyData.u8Identifier = PKT_ID_LED;
+			}
+			break;
+		case PKT_ID_AMB:
+			return;
+		case PKT_ID_MOT:
+			return;
+		case PKT_ID_LED:
+			sReplyData.u8Event = data->u8AccelEvent;
+			sReplyData.u8Identifier = PKT_ID_LED;
+			break;
+
+		default:
+			break;
+	}
+*/
+	uint8 lid = (data->u8LID&0x80) ? (data->u8LID&0x7F): (data->u8LID|0x80);
+	if(Reply_bSetData( lid, &sReplyData )){
+		Reply_bSendShareData( lid, TOCONET_MAC_ADDR_BROADCAST );
+	}
 }

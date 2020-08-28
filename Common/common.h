@@ -101,7 +101,7 @@ extern const uint8 au8IoModeTbl_To_LogicalID[8]; //!< tePortConf2Mode から論�
 /*
  * シリアルコマンドの定義
  */
-#define APP_PROTOCOL_VERSION 0x01 //!< App_Twelite プロトコルバージョン
+#define APP_TWELITE_PROTOCOL_VERSION 0x01 //!< App_Twelite プロトコルバージョン
 #define APP_IO_PROTOCOL_VERSION 0x02 //!< App_IO プロトコルバージョン
 #define APP_UART_PROTOCOL_VERSION 0x12 //!< App_Uart プロトコルバージョン
 
@@ -121,16 +121,19 @@ extern const uint8 au8IoModeTbl_To_LogicalID[8]; //!< tePortConf2Mode から論�
 #define SERCMD_ID_I2C_COMMAND 0x88
 #define SERCMD_ID_I2C_COMMAND_RESP 0x89
 
-#define SERCMD_ID_GET_MODULE_ADDRESS 0x90
-#define SERCMD_ID_INFORM_MODULE_ADDRESS 0x91
-#define SERCMD_ID_GET_NETWORK_CONFIG 0x92
-#define SERCMD_ID_INFORM_NETWORK_CONFIG 0x93
-#define SERCMD_ID_SET_NETWORK_CONFIG 0x94
+#define SERCMD_ID_PAL_COMMAND 0x90
+
+#define SERCMD_ID_GET_MODULE_ADDRESS 0xF0
+#define SERCMD_ID_INFORM_MODULE_ADDRESS 0xF1
+#define SERCMD_ID_GET_NETWORK_CONFIG 0xF2
+#define SERCMD_ID_INFORM_NETWORK_CONFIG 0xF3
+#define SERCMD_ID_SET_NETWORK_CONFIG 0xF4
 
 // Packet CMD IDs
 #define TOCONET_PACKET_CMD_APP_USER_IO_DATA (TOCONET_PACKET_CMD_APP_USER+0) //!< IO の入出力データ
 #define TOCONET_PACKET_CMD_APP_USER_IO_DATA_EXT (TOCONET_PACKET_CMD_APP_USER+1) //!< IO の入出力データ
 
+#define TOCONET_PACKET_CMD_APP_PAL_REPLY (0x06)
 #define TOCONET_PACKET_CMD_APP_MWX (0x07)	//!< MWXライブラリのパケットのデータ種別
 
 /* Modbus ASCII output functions */
@@ -146,6 +149,7 @@ void vQueryAppData();
 #define S_PRINT(...) if(!TWEINTRCT_bIsVerbose()) TWE_fprintf(&sSer,__VA_ARGS__) //!< 非VERBOSE モード時の printf 出力
 #define V_PUTCHAR(c) if(TWEINTRCT_bIsVerbose()) TWE_fputc(c, &sSer)  //!< VERBOSE モード時の putchar 出力
 #define S_PUTCHAR(c) if(!TWEINTRCT_bIsVerbose()) TWE_fputc(c, &sSer) //!< 非VERBOSE モード時の putchar 出力
+//#define DEBUG_OUTPUT
 #ifdef DEBUG_OUTPUT
 #define DBGOUT(lv, ...) if(sAppData.u8DebugLevel >= lv) TWE_fprintf(&sSer, __VA_ARGS__) //!< デバッグ出力
 #else

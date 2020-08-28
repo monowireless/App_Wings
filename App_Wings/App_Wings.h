@@ -57,6 +57,17 @@ typedef struct {
 	uint8 au16PWM_use_mask[4];   //!< 設定を行うPWMポートなら TRUE
 } tsIOSetReq;
 
+typedef struct{
+	uint8 u8color;
+	uint8 u8brightness;
+	uint8 u8pal;
+	uint8 u8edge;
+	uint8 u8brinkfreq;
+	uint8 u8brinkduty;
+	uint8 u8offcycle;
+} tsLEDSettings;
+
+
 /** @ingroup MASTER
  * アプリケーションの情報
  */
@@ -97,6 +108,8 @@ typedef struct {
 	uint32 u32AddrHigherLayer;	//!< 接続先の上位レイヤ(0だったら動的ルーティング)
 	uint32 u32baud;		//!< ボーレート
 	uint8 u8parity;		//!< シリアルのパリティなど
+
+	tsLEDSettings sLEDSettings[8];
 
 	// config mode
 	uint8 u8Mode; //!< 動作モード(IO M1,M2,M3 から設定される)
@@ -163,6 +176,9 @@ enum {
 #define vDoSetLo(c) (IS_APPCONF_OPT_DO_INVERT() ? vPortSetHi(c) : vPortSetLo(c))
 #define vDoSetHi(c) (IS_APPCONF_OPT_DO_INVERT() ? vPortSetLo(c) : vPortSetHi(c))
 #define vDoSet_TrueAsLo(c,f) vPortSet_TrueAsLo((c), (IS_APPCONF_OPT_DO_INVERT() ? ((f) == FALSE) : (f)))
+
+#define IS_PARENT() (sAppData.u8layer == 0)
+#define IS_ROUTER() (sAppData.u8layer != 0)
 
 void vSerInitMessage();
 void vInitAppParent();

@@ -44,7 +44,7 @@ extern "C" {
 #define STGS_KIND_PARENT_SLOT_MAX 1 //! 親機は SLOT0 のみ
 #define STGS_KIND_ROUTER 0x01		//! 中継機用設定
 #define STGS_KIND_ROUTER_SLOT_MAX 1 //! 親機は SLOT0 のみ
-#define STGS_KIND_MAX 2				//! 種別数の最大
+#define STGS_KIND_MAX 1				//! 種別数の最大
 
 // SERIAL BUFFERS
 #define SERCMD_SER_PKTLEN 80 //!< シリアルメッセージのデータ部の最大バイト数
