@@ -262,26 +262,24 @@ static void cbAppToCoNet_vRxEvent(tsRxDataApp *psRx) {
 		return;
 	}
 
-	uint8* p = psRx->auData;
-	uint16 u16Ver = G_BE_WORD();
-	if( ((u16Ver>>8)&0x7F) == 'R' || ((u16Ver>>8)&0x7F) == 'T' ){
-		vReceiveNwkMsg(psRx);
-	}else if( (u16Ver&0x00FF) == APP_TWELITE_PROTOCOL_VERSION ){
-		vReceive_AppTwelite(psRx);
-	}else if( (u16Ver&0x00FF) == APP_IO_PROTOCOL_VERSION && psRx->u8Len == 18 ){
-		vReceive_AppIO(psRx);
-	}else if( (u16Ver&0x001F) == APP_UART_PROTOCOL_VERSION ){
-		vReceive_AppUart(psRx);
+	if(psRx->u8Cmd == TOCONET_PACKET_CMD_APP_MWX){
+		DBGOUT(3, "Act"LB);
+		vReceiveActData(psRx);
 	}else{
-		switch (psRx->u8Cmd) {
-			case TOCONET_PACKET_CMD_APP_MWX:
-				vReceiveActData(psRx);
-				break;
-			case TOCONET_PACKET_CMD_APP_DATA:
-				vReceiveNwkMsg(psRx);
-				break;
-			default:
-				break;
+		uint8* p = psRx->auData;
+		uint16 u16Ver = G_BE_WORD();
+		if( ((u16Ver>>8)&0x7F) == 'R' || ((u16Ver>>8)&0x7F) == 'T' ){
+			DBGOUT(3, "PAL/TAG"LB);
+			vReceiveNwkMsg(psRx);
+		}else if( (u16Ver&0x00FF) == APP_TWELITE_PROTOCOL_VERSION ){
+			DBGOUT(3, "TWELITE"LB);
+			vReceive_AppTwelite(psRx);
+		}else if( (u16Ver&0x00FF) == APP_IO_PROTOCOL_VERSION && psRx->u8Len == 18 ){
+			DBGOUT(3, "IO"LB);
+			vReceive_AppIO(psRx);
+		}else if( (u16Ver&0x001F) == APP_UART_PROTOCOL_VERSION ){
+			DBGOUT(3, "Uart"LB);
+			vReceive_AppUart(psRx);
 		}
 	}
 }
