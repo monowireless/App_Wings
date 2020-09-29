@@ -92,8 +92,8 @@ uint8 au8Color[9][4] = {
 	{1, 1, 1, 1}	// all
 };
 
-uint8 au8BlinkDuty[4] = { 0, 0x7F, 0x3F, 0x20 };
-uint8 au8BlinkCycle[4] = { 0, 0x17, 0x17, 0x2F };
+uint8 au8BlinkCycle[16] = { 0, 0x17, 0x0B, 0x05, 0x17, 0x17, 0x2E, 0x2E, 0x45, 0x45, 0x0C, 0x0C, 0x08, 0x08, 0x2E, 0x45 };
+uint8 au8BlinkDuty[16] =  { 0, 0x7F, 0x7F, 0x7F, 0x06, 0x0D, 0x03, 0x07, 0x02, 0x05, 0x0C, 0x1A, 0x12, 0x27, 0x7F, 0x7F };
 
 /*
  * E_STATE_IDLE
@@ -1358,6 +1358,8 @@ void vSerOutput_Tag(tsRxPktInfo sRxPktInfo, uint8 *p) {
 	case PKT_ID_STANDARD:
 	case PKT_ID_LM61:
 	case PKT_ID_SHT21:
+	case PKT_ID_SHT31:
+	case PKT_ID_SHTC3:
 		_C {
 			uint8	u8batt = G_OCTET();
 			uint16	u16adc0 = G_BE_WORD();
@@ -1919,12 +1921,13 @@ static void vProcessSerialCmd(TWESERCMD_tsSerCmd_Context *pSer) {
 						break;
 					case 1:
 						_C{
-							sReplyData.u8Event = 0xFE;
 							uint8 u8Color = G_OCTET();
 							uint8 u8Blink = G_OCTET();
 							uint8 u8Bright = G_OCTET();
 
+							sReplyData.u8Event = 0xFE;
 							if( u8Bright > 15 ) u8Bright = 15;
+							if( u8Blink > 15 ) u8Bright = 0;
 							sReplyData.u16RGBW = (au8Color[u8Color][0]*u8Bright);
 							sReplyData.u16RGBW |= (au8Color[u8Color][1]*u8Bright)<<4;
 							sReplyData.u16RGBW |= (au8Color[u8Color][2]*u8Bright)<<8;
@@ -1940,6 +1943,21 @@ static void vProcessSerialCmd(TWESERCMD_tsSerCmd_Context *pSer) {
 						//sReplyData.u8Identifier = G_OCTET();
 						sReplyData.u8LightsOutCycle = G_BE_WORD()&0xFF;
 						break;
+					case 3:
+						sReplyData.u8Event = 0xFE;
+						sReplyData.bCommand = TRUE;
+						sReplyData.u8Identifier = PKT_ID_LED;
+						p++;
+						sReplyData.u16RGBW = G_BE_WORD();
+						break;
+					case 4:
+						sReplyData.u8Event = 0xFE;
+						sReplyData.bCommand = TRUE;
+						sReplyData.u8Identifier = PKT_ID_LED;
+						p++;
+						sReplyData.u8BlinkDuty = G_OCTET();
+						sReplyData.u8BlinkCycle = G_OCTET();
+						break; 
 					default:
 						break;
 				} 

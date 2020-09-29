@@ -755,7 +755,7 @@ static int16 i16Transmit_AppUart_Msg(uint8 *p, uint16 u16len, tsTxDataApp *pTxTe
 	if (u16len > SERCMD_MAXPAYLOAD) {
 		return -1; // ペイロードが大きすぎる
 	}
-	TWE_fprintf(&sSer, "Uart %d/%d", u8Relay, sAppData.u8max_hops);
+	//TWE_fprintf(&sSer, "Uart %d/%d", u8Relay, sAppData.u8max_hops);
 
 	static uint8 u8UartSeqNext = 0;
 	sSerSeqTx.u8RespID = u8RspId;

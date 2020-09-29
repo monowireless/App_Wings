@@ -35,6 +35,8 @@
 #define PKT_ID_L3GD20 0x37
 #define PKT_ID_S1105902 0x38
 #define PKT_ID_BME280 0x39
+#define PKT_ID_SHT31 0x3A
+#define PKT_ID_SHTC3 0x3B
 #define PKT_ID_IO_TIMER 0x51
 #define PKT_ID_MAX31855 0x61
 #define PKT_ID_ADXL362 0x62
