@@ -15,7 +15,7 @@ TWELITE ?= BLUE
 ### set application version (MUST SET THIS.)
 VERSION_MAIN = 1
 VERSION_SUB  = 1
-VERSION_VAR  = 2
+VERSION_VAR  = 3
  
 #####################################################################
 ### set an additional source file

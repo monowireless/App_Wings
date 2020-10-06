@@ -76,6 +76,7 @@ bool_t Reply_bSetData( uint8 u8Id, tsReplyData* sData )
 			u8Ok += ((sData->u8IRCID == sReplyData[u8slot][u8lid].u8IRCID) ? 0: 1);
 			u8Ok += ((sData->u8LightsOutCycle == sReplyData[u8slot][u8lid].u8LightsOutCycle) ? 0: 1);
 			u8Ok += ((sData->u8Event == sReplyData[u8slot][u8lid].u8Event) ? 0: 1);
+			u8Ok += ((sData->u32LightsOutTime_sec == sReplyData[u8slot][u8lid].u32LightsOutTime_sec) ? 0: 1);
 			//TWE_fprintf(&sSer, LB"bOk = %d", u8Ok );
 
 			if(u8Ok > 0){
@@ -112,7 +113,7 @@ bool_t Reply_bGetData( uint8 u8Id, tsReplyData* sData )
 	if( 1 < u8slot ) return FALSE;
 
 	*sData = sReplyData[u8slot][u8lid];
-	DBGOUT( 3, LB"Get Data." );
+	//DBGOUT( 3, LB"Get Data." );
 	return TRUE;
 }
 
@@ -167,9 +168,14 @@ bool_t Reply_bSendData( tsRxPktInfo sRxPktInfo )
 	}
 
 	sTx.u16RetryDur = 0; // 再送間隔
-	sTx.u16DelayMin = 4; // 衝突を抑制するため送信タイミングを遅らせる
-	sTx.u16DelayMax = 12; // 衝突を抑制するため送信タイミングを遅らせる
 
+	if(IS_ROUTER()){
+		sTx.u16DelayMin = 4; // 衝突を抑制するため送信タイミングを遅らせる
+		sTx.u16DelayMax = 12; // 衝突を抑制するため送信タイミングを遅らせる
+	}else{
+		sTx.u16DelayMin = 0; // 衝突を抑制するため送信タイミングを遅らせる
+		sTx.u16DelayMax = 0; // 衝突を抑制するため送信タイミングを遅らせる
+	}
 	sTx.u8Cmd = TOCONET_PACKET_CMD_APP_PAL_REPLY; // 0..7 の値を取る。パケットの種別を分けたい時に使用する
 	sTx.u8Len = q - sTx.auData; // パケットのサイズ
 	sTx.u8CbId = 0; // TxEvent で通知される番号、送信先には通知されない
@@ -177,9 +183,9 @@ bool_t Reply_bSendData( tsRxPktInfo sRxPktInfo )
 	sTx.u8Retry = sAppData.u8StandardTxRetry;
 
 	if(ToCoNet_bMacTxReq(&sTx)){
-//		if(sTx.u16DelayMax == 0){
+		if(sTx.u16DelayMax == 0){
 			ToCoNet_Tx_vProcessQueue(); // 送信処理をタイマーを待たずに実行する
-//		}
+		}
 		DBGOUT( 3, LB"Send data to EndDevice.");
 		return TRUE;
 	}
@@ -247,17 +253,18 @@ bool_t Reply_bAskData(uint8 u8Id)
 	return FALSE;
 }
 
-// 下位のレイヤに更新データを送信する。
-bool_t Reply_bSendShareData( uint8 u8Id, uint32 u32Addr )
+/**
+ * 下位のレイヤに更新データを送信する。
+ * 
+ * @param pu8Id		送信するID
+ * @param u8Datanum	送信するIDの数
+ * @param 送信先
+ **/ 
+bool_t Reply_bSendShareData( uint8* pu8Id, uint8 u8Datanum, uint32 u32Addr )
 {
 	tsTxDataApp sTx;
 	memset(&sTx, 0, sizeof(sTx)); // 必ず０クリアしてから使う！
 	uint8 *q =  sTx.auData;
-
-	uint8 u8slot = u8Id>>7;
-	uint8 num = ((u8Id&0x7F) == 0x00) ? 8:1;
-	uint8 u8lid = (num==8) ? 0:(u8Id&0x7F)-1;
-	uint8 i;
 
 //	DBGOUT( 3, LB"sh_Id = %d", u8lid );
 //	DBGOUT( 3, ", slot = %d", u8slot );
@@ -275,16 +282,16 @@ bool_t Reply_bSendShareData( uint8 u8Id, uint32 u32Addr )
 
 	S_BE_DWORD( u32TimeStamp );
 
-	S_OCTET(num);
+	S_OCTET(u8Datanum);
 
-	for( i=0; i<num; i++ ){
-		uint8 id = u8lid;
-		if(num == 8){
-			id = i;
-		}else if(num != 1){
+	uint8 i;
+	for( i=0; i<u8Datanum; i++ ){
+		uint8 id = (pu8Id[i]&0x7F)-1;
+		uint8 slot = pu8Id[i]>>7;
+		if(u8Datanum == 0){
 			return FALSE;
 		}
-		q = pu8CreateData( u8slot, id, q );
+		q = pu8CreateData( slot, id, q );
 
 		if( q == NULL ){
 			return FALSE;
@@ -301,7 +308,7 @@ bool_t Reply_bSendShareData( uint8 u8Id, uint32 u32Addr )
 	sTx.u8Cmd = TOCONET_PACKET_CMD_APP_PAL_REPLY; // 0..7 の値を取る。パケットの種別を分けたい時に使用する
 	sTx.u8Len = q - sTx.auData; // パケットのサイズ
 	sTx.u8CbId = 0; // TxEvent で通知される番号、送信先には通知されない
-	sTx.u8Seq = sReplyData[u8slot][u8lid].u16Count; // シーケンス番号(送信先に通知される)
+	sTx.u8Seq = u32Seq&0xFF; // シーケンス番号(送信先に通知される)
 	sTx.u8Retry = sAppData.u8StandardTxRetry;
 
 	if(ToCoNet_bMacTxReq(&sTx)){
@@ -353,27 +360,24 @@ bool_t Reply_bReceiveReplyData( tsRxDataApp* psRx )
 	switch(u8PktId){
 		case REPLY_ASK:
 			_C{
-				uint8 u8Id = G_OCTET();
-				Reply_bSendShareData( u8Id, psRx->u32SrcAddr );
+				uint8 u8Id[] = {G_OCTET(), 0};
+				Reply_bSendShareData( u8Id, 1, psRx->u32SrcAddr );
 			}
 			break;
 		case REPLY_SHARE:
 			if( sAppData.u8layer != 0 ){
-				// 接続している上位レイヤ以外は聞かない
-				tsToCoNet_NwkLyTr_Context *pc = (void*)sAppData.pContextNwk;
-				if( psRx->u32SrcAddr != pc->u32AddrHigherLayer ){
-					//break;
-				}
 				DBGOUT( 3, LB"Rcv Req. %02X", u8PktId);
 
 				uint8 u8Num = G_OCTET();
 				DBGOUT( 3, LB"Num = %d", u8Num );
 
 				uint8 i;
-				uint8 u8slot = 0;
+//				uint8 u8slot = 0;
+				uint8 au8id[8];
+				uint8 count = 0;
 				for( i=0; i<u8Num; i++ ){
 					uint8 u8Id = G_OCTET();
-					u8slot = u8Id>>7;
+//					u8slot = u8Id>>7;
 					tsReplyData sData;
 					memset(&sData, 0x00, sizeof(tsReplyData));
 					sData.u8Identifier = G_OCTET();
@@ -387,25 +391,23 @@ bool_t Reply_bReceiveReplyData( tsRxDataApp* psRx )
 							sData.u8BlinkCycle = G_OCTET();
 							sData.u8BlinkDuty = G_OCTET();
 							sData.u8LightsOutCycle = G_OCTET();
-							//sData.u16Count = (uint16)(u32Seqnum&0x0000FFFF);
-							//p++;
-							if(Reply_bSetData( u8Id+1, &sData )){
-								if( u8Num == 1 ) Reply_bSendShareData( u8Id+1, TOCONET_MAC_ADDR_BROADCAST );
-							}
+							DBGOUT( 3, ", RGBW = %04X", sData.u16RGBW );
+
+							au8id[count] = u8Id+1;
+							if( Reply_bSetData( au8id[count], &sData )) count++;
 							break;
 						case 0xFF:
-							if(Reply_bSetData( u8Id+1, &sData )){
-								if( u8Num == 1 ) Reply_bSendShareData( u8Id+1, TOCONET_MAC_ADDR_BROADCAST );
-							}
+							au8id[i] = u8Id+1;
 							p += 5;
+							if( Reply_bSetData( au8id[count], &sData )) count++;
 						default:
 							p += 5;
 							break;
 					}
 				}
 
-				if( u32Tick_ms == u32TimeStamp && u8Num == 8 ){
-					Reply_bSendShareData( 0x00|(u8slot<<7), TOCONET_MAC_ADDR_BROADCAST );
+				if( count ){
+					Reply_bSendShareData( au8id, count, TOCONET_MAC_ADDR_BROADCAST );
 				}
 			}
 			break;
@@ -418,15 +420,16 @@ bool_t Reply_bReceiveReplyData( tsRxDataApp* psRx )
 
 static uint8* pu8CreateData( uint8 u8slot, uint8 u8Id, uint8* q )
 {
-//	DBGOUT( 3, LB"CDId = %d", u8Id );
-//	DBGOUT( 3, ", Id = %d", u8slot ? (u8Id|0x80):u8Id );
-//	DBGOUT( 3, ", Identifier = %d", sReplyData[u8slot][u8Id].u8Identifier );
-//	DBGOUT( 3, ", Event = %d", sReplyData[u8slot][u8Id].u8Event );
+	DBGOUT( 3, LB"CDId = %d", u8Id );
+	DBGOUT( 3, ", Id = %d", u8slot ? (u8Id|0x80):u8Id );
+	DBGOUT( 3, ", Identifier = %d", sReplyData[u8slot][u8Id].u8Identifier );
+	DBGOUT( 3, ", Event = %d", sReplyData[u8slot][u8Id].u8Event );
 	S_OCTET( u8slot ? (u8Id|0x80):u8Id );
 	S_OCTET( sReplyData[u8slot][u8Id].u8Identifier );
 	S_OCTET( sReplyData[u8slot][u8Id].u8Event );
 	switch ( sReplyData[u8slot][u8Id].u8Identifier ){
 	case PKT_ID_LED:
+		DBGOUT( 3, ", Color = %04X", sReplyData[u8slot][u8Id].u16RGBW );
 		S_BE_WORD( sReplyData[u8slot][u8Id].u16RGBW );
 		S_OCTET( sReplyData[u8slot][u8Id].u8BlinkCycle );
 		S_OCTET( sReplyData[u8slot][u8Id].u8BlinkDuty );

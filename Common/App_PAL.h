@@ -94,6 +94,7 @@ typedef struct{
 	uint8	u8LightsOutCycle;	// 消灯時間
 	uint8	u8IRCID;			// IRCのコマンドID
 	uint16	u16Count;			// シーケンス番号
+	uint32	u32LightsOutTime_sec;	// 消灯時間
 }tsReplyData;
 
 void Reply_vInit();
@@ -101,7 +102,7 @@ bool_t Reply_bSetData( uint8 u8Id, tsReplyData* sReplyData );
 bool_t Reply_bGetData( uint8 u8Id, tsReplyData* sReplyData );
 bool_t Reply_bSendData( tsRxPktInfo sRxPktInfo );
 bool_t Reply_bAskData( uint8 u8Id );
-bool_t Reply_bSendShareData( uint8 u8Id, uint32 u32Addr );
+bool_t Reply_bSendShareData( uint8* pu8Id, uint8 u8Datanum, uint32 u32Addr );
 bool_t Reply_bReceiveReplyData( tsRxDataApp* psRx );
 
 #endif  /* MASTER_H_INCLUDED */

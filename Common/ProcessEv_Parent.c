@@ -108,10 +108,21 @@ PRSEV_HANDLER_DEF(E_STATE_IDLE, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
 			vSerInitMessage();
 		}
 
+		// 重複チェッカーのタイムアウト時間を指定する。
+		if(IS_APPCONF_OPT_SHORTTIMEOUT()){
+			TOCONET_DUPCHK_TIMEOUT_ms = 1024;
+		}else{
+			TOCONET_DUPCHK_TIMEOUT_ms = 2048;
+		}
 		TOCONET_DUPCHK_DECLARE_CONETXT(DUPCHK,40); //!< 重複チェック
 		psDupChk = ToCoNet_DupChk_psInit(DUPCHK);
 
 		Reply_vInit();
+
+		if (IS_APPCONF_OPT_SECURE()) {
+			bool_t bRes = bRegAesKey(sAppData.u32enckey);
+			S_PRINT(LB "*** Register AES key (%d) ***", bRes);
+		}
 
 		// 中継ネットの設定
 		sAppData.sNwkLayerTreeConfig.u8Layer = 0;
@@ -130,21 +141,46 @@ PRSEV_HANDLER_DEF(E_STATE_IDLE, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
 }
 
 PRSEV_HANDLER_DEF(E_STATE_RUNNING, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
-	static uint8 count = 0;
-	if( eEvent == E_EVENT_TICK_SECOND ){
-		count++;
-/*		if(count == 5){
-			// スロット0(LID:1～8)の内容を共有する
-			Reply_bSendShareData( 0x00, TOCONET_MAC_ADDR_BROADCAST );
-		}
-		if( count == 10 ){
-			// スロット1(LID:0x81～0x88)の内容を共有する
-			Reply_bSendShareData( 0x80, TOCONET_MAC_ADDR_BROADCAST );
+	if( eEvent == E_EVENT_NEW_STATE ){
+		DBGOUT(3, LB "*** RUNNING ***");
+	}
 
-			//TWE_fprintf(&sSer, LB"%08X : Regular Share.", u32TickCount_ms);
-			count = 0;
+	if( eEvent == E_EVENT_TICK_SECOND ){
+		ToCoNet_DupChk_vClean( psDupChk );
+
+		uint8 i, j;
+		uint8 count = 0;
+		uint8 au8id[8];
+		for( i=0; i<2; i++ ){
+			for( j=0; j<100; j++ ){
+				tsReplyData sReplyData;
+				uint8 id = j|(i?0x80:0x00);
+				Reply_bGetData( id, &sReplyData );
+				if( sReplyData.bCommand == TRUE ){
+					if( sReplyData.u32LightsOutTime_sec ){
+						sReplyData.u32LightsOutTime_sec--;
+						DBGOUT(3, LB"! Decrement Time %d:%d", id, sReplyData.u32LightsOutTime_sec);
+						if(sReplyData.u32LightsOutTime_sec==0){
+							sReplyData.u16RGBW = 0;
+							au8id[count] = id;
+							count++;
+
+							DBGOUT(3, LB"! TurnOff %d", id);
+						}
+						Reply_bSetData(id, &sReplyData);
+
+						if(count == 8){
+							Reply_bSendShareData( au8id, 8, TOCONET_MAC_ADDR_BROADCAST );
+							count = 0;
+						}
+					}
+				}
+			}
 		}
-*/	}
+		if(count){
+			Reply_bSendShareData( au8id, count, TOCONET_MAC_ADDR_BROADCAST );
+		}
+	}
 	return;
 }
 
@@ -206,7 +242,9 @@ static uint8 cbAppToCoNet_u8HwInt(uint32 u32DeviceId, uint32 u32ItemBitmap) {
 static void cbAppToCoNet_vHwEvent(uint32 u32DeviceId, uint32 u32ItemBitmap) {
 	switch (u32DeviceId) {
 	case E_AHI_DEVICE_TICK_TIMER:
-		ToCoNet_DupChk_vClean( psDupChk );
+		_C{
+
+		}
 		break;
 
 	default:
@@ -1304,6 +1342,7 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 				break;
 			case REPLY:
 				bReplyFlag = TRUE;
+				sSerCmdOut.au8data[14]--;
 				break;
 
 			default:
@@ -1939,9 +1978,11 @@ static void vProcessSerialCmd(TWESERCMD_tsSerCmd_Context *pSer) {
 						}
 						break;
 					case 2:
+						sReplyData.bCommand = TRUE;
 						p++;
 						//sReplyData.u8Identifier = G_OCTET();
-						sReplyData.u8LightsOutCycle = G_BE_WORD()&0xFF;
+						//sReplyData.u8LightsOutCycle = G_BE_WORD()&0xFF;
+						sReplyData.u32LightsOutTime_sec = G_BE_WORD();
 						break;
 					case 3:
 						sReplyData.u8Event = 0xFE;
@@ -1963,7 +2004,8 @@ static void vProcessSerialCmd(TWESERCMD_tsSerCmd_Context *pSer) {
 				} 
 			}
 			if(Reply_bSetData( u8addr, &sReplyData )){
-				Reply_bSendShareData( u8addr, TOCONET_MAC_ADDR_BROADCAST );
+				uint8 id[] = {u8addr, 0};
+				Reply_bSendShareData( id, 1, TOCONET_MAC_ADDR_BROADCAST );
 			}
 			return;
 		}
@@ -2215,8 +2257,8 @@ void vSetReplyData( tsSnsData* data )
 			break;
 	}
 */
-	uint8 lid = (data->u8LID&0x80) ? (data->u8LID&0x7F): (data->u8LID|0x80);
-	if(Reply_bSetData( lid, &sReplyData )){
-		Reply_bSendShareData( lid, TOCONET_MAC_ADDR_BROADCAST );
+	uint8 lid[] = {((data->u8LID&0x80) ? (data->u8LID&0x7F): (data->u8LID|0x80)), 0} ;
+	if(Reply_bSetData( lid[0], &sReplyData )){
+		Reply_bSendShareData( lid, 1, TOCONET_MAC_ADDR_BROADCAST );
 	}
 }

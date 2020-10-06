@@ -73,6 +73,12 @@ PRSEV_HANDLER_DEF(E_STATE_IDLE, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
 			vSerInitMessage();
 		}
 
+		// 重複チェッカーのタイムアウト時間を指定する。
+		if(IS_APPCONF_OPT_SHORTTIMEOUT()){
+			TOCONET_DUPCHK_TIMEOUT_ms = 1024;
+		}else{
+			TOCONET_DUPCHK_TIMEOUT_ms = 2048;
+		}
 		TOCONET_DUPCHK_DECLARE_CONETXT(DUPCHK,40); //!< 重複チェック
 		psDupChk = ToCoNet_DupChk_psInit(DUPCHK);
 
@@ -106,30 +112,18 @@ PRSEV_HANDLER_DEF(E_STATE_IDLE, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
 		}
 		//ToCoNet_Event_SetState(pEv, E_STATE_RUNNING);
 	}
-	if (eEvent == E_EVENT_TOCONET_NWK_START) {
+	if ( eEvent == E_ORDER_KICK ) {
 		ToCoNet_Event_SetState(pEv, E_STATE_RUNNING);
 	}
 }
 
 PRSEV_HANDLER_DEF(E_STATE_RUNNING, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
-/*
-	static uint8 count = 0;
+	if( eEvent == E_EVENT_NEW_STATE ){
+		S_PRINT(LB "*** RUNNING ***");
+	}	
 	if( eEvent == E_EVENT_TICK_SECOND ){
-		count++;
-		if( count == 5 ){
-			S_PRINT( LB"slot0 share" );
-			// スロット0(LID:1～8)の内容を共有する
-			Reply_bSendShareData( 0x00, TOCONET_NWK_ADDR_BROADCAST );
-		}
-		if( count == 10 ){
-			S_PRINT( LB"slot1 share" );
-			// スロット1(LID:0x81～0x88)の内容を共有する
-			Reply_bSendShareData( 0x80, TOCONET_MAC_ADDR_BROADCAST );
-			count = 0;
-		}
+		ToCoNet_DupChk_vClean( psDupChk );
 	}
-*/
-	return;
 }
 
 /**
@@ -190,7 +184,6 @@ static uint8 cbAppToCoNet_u8HwInt(uint32 u32DeviceId, uint32 u32ItemBitmap) {
 static void cbAppToCoNet_vHwEvent(uint32 u32DeviceId, uint32 u32ItemBitmap) {
 	switch (u32DeviceId) {
 	case E_AHI_DEVICE_TICK_TIMER:
-		ToCoNet_DupChk_vClean( psDupChk );
 		break;
 
 	default:
@@ -213,6 +206,7 @@ static void cbAppToCoNet_vMain() {
 static void cbAppToCoNet_vNwkEvent(teEvent eEvent, uint32 u32arg) {
 	switch(eEvent) {
 	case E_EVENT_TOCONET_NWK_START:
+		ToCoNet_Event_Process(E_ORDER_KICK, 0, vProcessEvCore);
 		S_PRINT( LB"[E_EVENT_TOCONET_NWK_START]");
 		break;
 

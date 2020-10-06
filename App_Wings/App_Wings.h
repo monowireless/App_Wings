@@ -158,6 +158,7 @@ enum {
 #define E_APPCONF_OPT_REGULAR_PACKET_NO_DISP		0x00000400UL //!< 標準アプリの定期送信パケットを出力しない @ingroup FLASH
 #define E_APPCONF_OPT_SECURE						0x00001000UL //!< 暗号化通信を有効にする。 @ingroup FLASH
 #define E_APPCONF_OPT_RCV_NOSECURE					0x00002000UL //!< 暗号化通信しているときに平文も受信する。 @ingroup FLASH
+#define E_APPCONF_OPT_SHORTTIMEOUT					0x10000000UL //!< 重複チェッカーのタイムアウトを短くする。
 
 #define IS_APPCONF_OPT_PWM_INVERT() (sAppData.u32opt & E_APPCONF_OPT_PWM_INVERT) //!< E_APPCONF_OPT_PWM_INVERT判定 @ingroup FLASH
 #define IS_APPCONF_OPT_DO_INVERT() (sAppData.u32opt & E_APPCONF_OPT_DO_INVERT) //!< E_APPCONF_OPT_DO_INVERT判定 @ingroup FLASH
@@ -168,6 +169,7 @@ enum {
 #define IS_APPCONF_OPT_REGULAR_PACKET_NO_DISP() (sAppData.u32opt & E_APPCONF_OPT_REGULAR_PACKET_NO_DISP) //!< E_APPCONF_OPT_REGULAR_PACKET_NO_DISP判定 @ingroup FLASH
 #define IS_APPCONF_OPT_SECURE() (sAppData.u32opt & E_APPCONF_OPT_SECURE) //!< E_APPCONF_OPT_SECURE判定 @ingroup FLASH
 #define IS_APPCONF_OPT_RCV_NOSECURE() (sAppData.u32opt & E_APPCONF_OPT_RCV_NOSECURE) //!< E_APPCONF_OPT_RCV_NOSECURE判定 @ingroup FLASH
+#define IS_APPCONF_OPT_SHORTTIMEOUT() (sAppData.u32opt & E_APPCONF_OPT_SHORTTIMEOUT) //!< E_APPCONF_OPT_SHORTTIMEOUT判定 @ingroup FLASH
 
 /** PWM値の反転を考慮した値を設定する */
 #define _PWM(c) (IS_APPCONF_OPT_PWM_INVERT() ? (1024-c) : c)
