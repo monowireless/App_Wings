@@ -4,6 +4,9 @@
         "Common",
         "App_Wings",
         "App_Wings_MONOSTICK",
+        "${env:MWSDK_ROOT}/Tools/VSCode/**",
+        "${env:MWSDK_TWENET_LIBSRC}/include/**",
+        "${env:MWSDK_TWENET_LIBSRC}/src/**",
         "../../Tools/VSCode/**",
         "../../TWENET/current/include/**",
         "../../TWENET/current/src/**"
@@ -12,6 +15,9 @@
         "Common",
         "App_Wings",
         "App_Wings_MONOSTICK",
+        "${env:MWSDK_ROOT}/Tools/VSCode/**",
+        "${env:MWSDK_TWENET_LIBSRC}/include/**",
+        "${env:MWSDK_TWENET_LIBSRC}/src/**",
         "../../Tools/VSCode/**",
         "../../TWENET/current/include/**",
         "../../TWENET/current/src/**"
