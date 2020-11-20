@@ -60,6 +60,7 @@
 #define DIO		0x31
 #define EEPROM	0x32
 #define REPLY	0x33
+#define FACTOR	0x34
 
 #define TYPE_CHAR		0x00
 #define TYPE_SHORT		0x01

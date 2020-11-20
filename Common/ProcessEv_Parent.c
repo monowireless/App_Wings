@@ -1344,6 +1344,21 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 				bReplyFlag = TRUE;
 				sSerCmdOut.au8data[14]--;
 				break;
+			case FACTOR:
+				_C{
+					uint8 u8pktid = G_OCTET();
+					uint8 u8device = G_OCTET();
+					uint8 u8factor = G_OCTET();
+
+					S_OCTET(TYPE_UNSIGNED|TYPE_CHAR);
+					S_OCTET(u8Sensor);
+					S_OCTET(0x00)
+					S_OCTET(3);
+					S_OCTET(u8pktid);
+					S_OCTET(u8device);
+					S_OCTET(u8factor);
+				}
+				break;
 
 			default:
 				break;
