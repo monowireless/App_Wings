@@ -314,6 +314,10 @@ void cbToCoNet_vHwEvent(uint32 u32DeviceId, uint32 u32ItemBitmap) {
 		}
 		break;
 
+	case E_AHI_DEVICE_TIMER0:
+		sAppData.u32CtTimer0++;
+		break;
+
 	default:
 		break;
 	}
