@@ -110,11 +110,11 @@ PRSEV_HANDLER_DEF(E_STATE_IDLE, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
 			ToCoNet_Nwk_bInit(sAppData.pContextNwk);
 			ToCoNet_Nwk_bStart(sAppData.pContextNwk);
 		}
-		//ToCoNet_Event_SetState(pEv, E_STATE_RUNNING);
-	}
-	if ( eEvent == E_ORDER_KICK ) {
 		ToCoNet_Event_SetState(pEv, E_STATE_RUNNING);
 	}
+//	if ( eEvent == E_ORDER_KICK ) {
+//		ToCoNet_Event_SetState(pEv, E_STATE_RUNNING);
+//	}
 }
 
 PRSEV_HANDLER_DEF(E_STATE_RUNNING, tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
@@ -315,6 +315,7 @@ static void cbAppToCoNet_vTxEvent(uint8 u8CbId, uint8 bStatus) {
 			u32TickCount_ms & 0xFFFF,
 			u8CbId
 			);*/
+	S_PRINT( LB "<< SEND TIME %02x <<", u8CbId );
 	return;
 }
 /**

@@ -376,7 +376,7 @@ static void vInitHardware(int f_warm_start) {
 	vPortAsOutput(WD_ENABLE);
 
 	vPortDisablePullup(WD_PULSE);
-	vPortSetHi(WD_PULSE);
+	vPortSetLo(WD_PULSE);
 	vPortAsOutput(WD_PULSE);
 #else
 	vPortDisablePullup(PORT_OUT2);
