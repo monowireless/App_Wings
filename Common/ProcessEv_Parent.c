@@ -72,9 +72,6 @@ extern TWEINTRCT_tsContext* sIntr;
 
 extern tsTimerContext sTimerPWM; //!< タイマー管理構造体  @ingroup MASTER
 
-tsSerSeq sSerSeqTx; //!< 分割パケット管理構造体（送信用）  @ingroup MASTER
-tsSerSeq sSerSeqRx; //!< 分割パケット管理構造体（受信用）  @ingroup MASTE
-uint8 au8SerBuffRx[SERCMD_MAXPAYLOAD + 32]; //!< sSerSeqRx 用に確保  @ingroup MASTER
 extern TWESERCMD_tsSerCmd_Context sSerCmdOut; //!< シリアル出力
 
 extern tsToCoNet_DupChk_Context* psDupChk;
@@ -1283,6 +1280,43 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 					S_OCTET(state);
 				}
 				break;
+			case ACCEL_EX:
+				_C{
+					uint8 exbit = G_OCTET();
+					switch (exbit){
+						case 0x01:
+						case 0x02:
+						case 0x03:
+							_C{
+								int16 X = G_BE_WORD();
+								int16 Y = G_BE_WORD();
+								int16 Z = G_BE_WORD();
+
+								S_OCTET( USE_EXBYTE|TYPE_SIGNED|TYPE_SHORT );
+								S_OCTET( u8Sensor );
+								S_OCTET( exbit );
+								S_OCTET(6);
+								S_BE_WORD(X);
+								S_BE_WORD(Y);
+								S_BE_WORD(Z);
+							}
+							break;
+						case 0x81:
+						case 0x82:
+							_C{
+								uint16 data = G_BE_WORD();
+								S_OCTET( USE_EXBYTE|TYPE_UNSIGNED|TYPE_SHORT );
+								S_OCTET( u8Sensor );
+								S_OCTET( exbit );
+								S_OCTET(2);
+								S_BE_WORD(data);
+							}
+							break;
+						default:
+							break;
+					}
+				}
+				break;
 			case ADC:
 				_C{
 					uint8 u8num = G_OCTET();
@@ -1359,8 +1393,44 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 					S_OCTET(u8factor);
 				}
 				break;
+			case TIMER:
+				_C{
+					uint8 u8bit = G_OCTET();
+					bool_t bRTC = (u8bit&0x80) ? TRUE:FALSE;
+					if(bRTC){
+					}else{
+						if(u8bit <= 8){
+							uint8 time = G_OCTET();
+							S_OCTET(TYPE_UNSIGNED|TYPE_CHAR);
+							S_OCTET(u8Sensor);
+							S_OCTET(0x00)
+							S_OCTET(1);
+							S_OCTET(time);
+						}else if (u8bit <= 16){
+							uint16 time = G_BE_WORD();
+							S_OCTET(TYPE_UNSIGNED|TYPE_SHORT);
+							S_OCTET(u8Sensor);
+							S_OCTET(0x00)
+							S_OCTET(2);
+							S_BE_WORD(time);
+						}else if (u8bit <= 32){
+							uint32 time = G_BE_WORD();
+							S_OCTET(TYPE_UNSIGNED|TYPE_SHORT);
+							S_OCTET(u8Sensor);
+							S_OCTET(0x00)
+							S_OCTET(2);
+							S_BE_WORD(time);
+						}
+					}
+				}
+				break;
 
 			default:
+				// データを知らない場合はエラーメッセージを出力する。
+				S_OCTET(ERROR|0x7F);
+				S_OCTET(u8Sensor);
+				S_OCTET(0xFF);
+				S_OCTET(0);
 				break;
 		}
 

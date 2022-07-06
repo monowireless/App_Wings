@@ -1,3 +1,8 @@
-親機・中継機アプリ（App_Wings）
-親機・中継機アプリ（App_Wings）はTWELITE APPSとactの全てのデータパケットを処理することができ、共通の親機または中継機として使用できます。
-https://mono-wireless.com/jp/products/TWE-APPS/App_Wings/
+[JAPANESE]
+TITLE=親機・中継機アプリ（App_Wings）
+DESC=親機・中継機アプリ（App_Wings）はTWELITE APPSとactの全てのデータパケットを処理することができ、共通の親機または中継機として使用できます。
+URL=https://mono-wireless.com/jp/products/TWE-APPS/App_Wings/
+[ENGLISH]
+TITLE=App_Wings
+DESC=This app can receive all data packets of TWELITE APPS and act as a common parent or router.
+URL=https://mono-wireless.com/jp/products/TWE-APPS/App_Wings/

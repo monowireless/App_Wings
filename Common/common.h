@@ -162,4 +162,12 @@ void vQueryAppData();
 uint8 u8StrSplitTokens(uint8 *pstr, uint8 **auptr, uint8 u8max_entry);
 bool_t bRegAesKey(uint32 u32seed);
 
+
+/*
+ * シリアルバッファ
+ */
+extern tsSerSeq sSerSeqTx; //!< 分割パケット管理構造体（送信用）  @ingroup MASTER
+extern tsSerSeq sSerSeqRx; //!< 分割パケット管理構造体（受信用）  @ingroup MASTE
+extern uint8 au8SerBuffRx[SERCMD_MAXPAYLOAD + 32]; //!< sSerSeqRx 用に確保  @ingroup MASTER
+
 #endif /* COMMON_H_ */

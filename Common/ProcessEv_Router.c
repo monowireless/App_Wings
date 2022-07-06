@@ -53,9 +53,6 @@ extern TWEINTRCT_tsContext* sIntr;
 
 extern tsTimerContext sTimerPWM; //!< タイマー管理構造体  @ingroup MASTER
 
-tsSerSeq sSerSeqTx; //!< 分割パケット管理構造体（送信用）  @ingroup MASTER
-tsSerSeq sSerSeqRx; //!< 分割パケット管理構造体（受信用）  @ingroup MASTE
-uint8 au8SerBuffRx[SERCMD_MAXPAYLOAD + 32]; //!< sSerSeqRx 用に確保  @ingroup MASTER
 extern TWESERCMD_tsSerCmd_Context sSerCmdOut; //!< シリアル出力
 
 extern tsToCoNet_DupChk_Context* psDupChk;

@@ -11,6 +11,13 @@
 #include "utils.h"
 #include "common.h"
 
+/*
+ * シリアルバッファ
+ */
+tsSerSeq sSerSeqTx; //!< 分割パケット管理構造体（送信用）
+tsSerSeq sSerSeqRx; //!< 分割パケット管理構造体（受信用）
+uint8 au8SerBuffRx[SERCMD_MAXPAYLOAD + 32]; //!< sSerSeqRx 用に確保
+
 /** @ingroup MASTER
  * MODE設定ビットからデフォルト割り当てされる論理ＩＤテーブル
  */

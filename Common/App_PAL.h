@@ -48,19 +48,23 @@
 /**
  * PALのデータの属性など 
  */
-#define HALLIC	0x00
-#define TEMP	0x01
-#define HUM		0x02
-#define ILLUM	0x03
-#define ACCEL	0x04
-#define EVENT	0x05
-#define LED		0x06
+#define HALLIC		0x00
+#define TEMP		0x01
+#define HUM			0x02
+#define ILLUM		0x03
+#define ACCEL		0x04
+#define EVENT		0x05
+#define LED			0x06
+#define ACCEL_EX	0x07
 
-#define ADC		0x30
-#define DIO		0x31
-#define EEPROM	0x32
-#define REPLY	0x33
-#define FACTOR	0x34
+#define EX_DEVICE	0x20
+
+#define ADC			0x30
+#define DIO			0x31
+#define EEPROM		0x32
+#define REPLY		0x33
+#define FACTOR		0x34
+#define TIMER		0x35
 
 #define TYPE_CHAR		0x00
 #define TYPE_SHORT		0x01

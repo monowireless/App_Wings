@@ -1,3 +1,8 @@
-親機・中継機アプリ（App_Wings）
-MONOSTICK用です。
-https://mono-wireless.com/jp/products/TWE-APPS/App_Wings/
+[JAPANESE]
+TITLE=親機・中継機アプリ（App_Wings）
+DESC=MONOSTICK用です。
+URL=https://mono-wireless.com/jp/products/TWE-APPS/App_Wings/
+[ENGLISH]
+TITLE=App_Wings for MONOSTICK
+DESC=This application is for MONOSTICK.
+URL=https://mono-wireless.com/jp/products/TWE-APPS/App_Wings/
