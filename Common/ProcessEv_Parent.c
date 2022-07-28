@@ -1238,8 +1238,8 @@ void vSerOutput_PAL(tsRxPktInfo sRxPktInfo, uint8 *p) {
 							sSnsData.au16Accle[0][j*k] = X[k];
 							sSnsData.au16Accle[1][j*k] = Y[k];
 							sSnsData.au16Accle[2][j*k] = Z[k];
+							if((u8Num&0x01) && (u8Num-j) < 2 ) break;
 						}
-
 
 						j += 2;
 					}
